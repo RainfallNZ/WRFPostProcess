@@ -6,10 +6,60 @@
 
 if (!require(rdrop2)) install.packages('rdrop2'); library(rdrop2) #Package to enable DropBox access
 if (!require(httpuv)) install.packages('httpuv'); library(httpuv) #Package to enable authenticating DropBox access via drop2
+if (!require(blastula)) install.packages('blastula'); library(blastula) #Package to enable emailing
+if (!require(keyring)) install.packages('keyring'); library(keyring) #Package to enable emailing
+
 
 #A handy function
 minpositive = function(x) min(x[x > 0])
 
+AlertEmail <- function(EmailSubject="Alert Email",EmailContent="Alert test",EmailAlertTable=NULL){
+  #A function to send an email
+  # Create a simple email message using
+  # Markdown-formatted text in the `body`
+  # and `footer` sections with the `md()`
+  # text helper function
+  email <-
+    compose_email(
+      body = md(paste(EmailContent,"
+      
+      ",EmailAlertTable,"
+
+This is an automated alert Email sent on behalf of
+
+Mike Green
+
+Engineering Meteorologist
+
+Meteorology Solutions Ltd.
+
+T:021 249 9248
+
+mike.green@metsolutions.co.nz
+")),
+      footer = md(
+        "
+metsolutions.co.nz
+")
+    )
+  
+  # The email message can always be
+  # previewed by calling the object
+  #if (interactive()) email
+  
+  ##One time setup of a key pair to enable automated email sending
+  #create_smtp_creds_key(id="TimsAutoEmailKey",user="tim.kerr@rainfall.nz",host="mailx.freeparking.co.nz",port=465, use_ssl = TRUE)
+  
+  email %>%
+    smtp_send(
+      from = "tim.kerr@rainfall.nz",
+      to = "timkerr37@hotmail.com",
+      subject = EmailSubject,
+      credentials = creds_key(
+        "TimsAutoEmailKey"
+      )
+    )
+}
 
 #Set the site of interest
 SiteName <- "Arthurs_Pass"
@@ -105,6 +155,7 @@ if (length(ThresholdedIndices) > 0){
   print(EmailSubject)
   print(EmailMessage)
   print(EmailTable)
+  AlertEmail(EmailSubject=EmailSubject,EmailContent=EmailMessage,EmailAlertTable=EmailTable)
 }
 
     
