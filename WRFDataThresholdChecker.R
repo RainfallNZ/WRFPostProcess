@@ -6,8 +6,11 @@
 
 if (!require(rdrop2)) install.packages('rdrop2'); library(rdrop2) #Package to enable DropBox access
 if (!require(httpuv)) install.packages('httpuv'); library(httpuv) #Package to enable authenticating DropBox access via drop2
-if (!require(blastula)) install.packages('blastula'); library(blastula) #Package to enable emailing
-if (!require(keyring)) install.packages('keyring'); library(keyring) #Package to enable emailing
+##Note, on Sabalcore, before I could install the blastula package I had to install Rcpp package.
+#if (!require(Rcpp)) install.packages('Rcpp'); library(Rcpp) #Required to ensure a correct version of GLIBXX_3.4.20 is available, apparently if it was compiled with a different c++ compiler then it is problematic. See http://lists.r-forge.r-project.org/pipermail/rcpp-devel/2016-March/009148.html
+if (!require(blastula)) install.packages('blastula'); library(blastula) #Package to enable emailing. 
+
+if (!require(keyring)) install.packages('keyring'); library(keyring) #Package to enable emailing. I needed to install libsecret-1-dev and libsodium-dev Ubuntu laptop for this to work
 if (!require(knitr)) install.packages('knitr'); library(knitr) #Package to enable nice formatting of tables
 
 #A handy function
