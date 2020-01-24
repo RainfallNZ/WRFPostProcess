@@ -3,20 +3,29 @@
 #Initial version 20th January 2020
 #Copyright 2020 Rainfall.NZ
 
-
+#Load libraries
+{
 if (!require(rdrop2)) install.packages('rdrop2'); library(rdrop2) #Package to enable DropBox access
 if (!require(httpuv)) install.packages('httpuv'); library(httpuv) #Package to enable authenticating DropBox access via drop2
 ##Note, on Sabalcore, before I could install the blastula package I had to install Rcpp package.
 #if (!require(Rcpp)) install.packages('Rcpp'); library(Rcpp) #Required to ensure a correct version of GLIBXX_3.4.20 is available, apparently if it was compiled with a different c++ compiler then it is problematic. See http://lists.r-forge.r-project.org/pipermail/rcpp-devel/2016-March/009148.html
 if (!require(blastula)) install.packages('blastula'); library(blastula) #Package to enable emailing. 
 
-if (!require(keyring)) install.packages('keyring'); library(keyring) #Package to enable emailing. I needed to install libsecret-1-dev and libsodium-dev Ubuntu laptop for this to work
+if (!require(keyring)) install.packages('keyring'); library(keyring) #Package to enable emailing. I needed to install libsodium-dev on my Ubuntu laptop for this to install, and libsecret-1-dev to make it work properly. On Sabalcore it requires loading the "libsodium" module prior to using R and running this script. But it still doesn't work. I've requested installation of libsecret-devel
 if (!require(knitr)) install.packages('knitr'); library(knitr) #Package to enable nice formatting of tables
+}
 
 #A handy function
 minpositive = function(x) min(x[x > 0])
 
-AlertEmail <- function(EmailSubject="Alert Email",EmailContent="Alert test",EmailAlertTable=cars[1:4,]){
+simpleCap <- function(x) {
+  s <- strsplit(x, " ")[[1]]
+  paste(toupper(substring(s, 1,1)), substring(s, 2),
+        sep="", collapse=" ")
+}
+
+#A function to send an email
+AlertEmail <- function(EmailSubject="Alert Email",EmailMessage="Alert test",EmailAlertTable=cars[1:4,],RecipientList=c("timkerr37@hotmail.com")){
   #A function to send an email
   # Create a simple email message using
   # Markdown-formatted text in the `body`
@@ -25,7 +34,7 @@ AlertEmail <- function(EmailSubject="Alert Email",EmailContent="Alert test",Emai
   FormattedTable <- kable(EmailAlertTable, format="html")
   email <-
     compose_email(
-      body = md(c(EmailContent,"***",
+      body = md(c(EmailMessage,"***",
       {FormattedTable},"
 
 ***      
@@ -66,102 +75,157 @@ mike.green@metsolutions.co.nz
     )
 }
 
-#Set the site of interest
-SiteName <- "Arthurs_Pass"
-
-#Set the parameter of interest
-Parameter <- "Temp"
-
-#Set the threshold
-Threshold <- 12
-
-#Set whether that alarm is to be above or below the threshold
-Above <- FALSE
-
-#Figure out the parameter long name and the units to be used
-ParameterAttributes <- data.frame(Parameters = c("Temp","WindSpd","WindDir","Rain","RH","SWDOWN"),
-                                  ParameterLongNames = c("temperature", "wind speed", "wind direction", "rain", "relative humidity", "solar radiation"),
-                                  Units = c("degrees C","metres per second", "degrees from North", "millimetres", "percent", "joules per square metre"),
-                                  stringsAsFactors = FALSE)
-ParameterIndex <- which(ParameterAttributes$Parameters == Parameter)
-
-#Figure out the parameter long name and the units to be used
-SiteAttributes <- data.frame(SiteNames = c("Arthurs_Pass","Porters_Pass","Lewis_Pass","Desert_Road"),
-                                  SiteLongNames = c("Arthur's Pass", "Porters Pass", "Lewis Pass", "Central North Island"),
-                             stringsAsFactors = FALSE)
-SiteIndex <- which(SiteAttributes$SiteNames == SiteName)
-
-##Create an authentication token for later use
-#token <- drop_auth()
-#saveRDS(token, )
-
-#Get the latest csv file from DropBox
-{
-#Figure out the filename of the latest file of interest
+#A function to test for an Alert condition
+TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=12,Above=FALSE){
   
-#Get a list of all the files
-DropBoxFiles <- drop_dir(path="Rainfall.NZ/WRF_data/")
-
-  #Find which ones have a csv suffix
-FilesOfInterest <- which(endsWith(DropBoxFiles$path_display,".csv"))
-
-#Get the metadata for all the csv files
-MetadataOfFilesOfInterest <- lapply(DropBoxFiles$path_lower[FilesOfInterest], drop_get_metadata)
-
-#Get the date-times of the csv files from the metadata
-DatesOfFilesOfInterest <- sapply(MetadataOfFilesOfInterest, "[[", "client_modified")
-
-#Set the datetimes as date-time objects
-Dates <- as.POSIXct(DatesOfFilesOfInterest, format="%Y-%m-%dT%H:%M:%SZ",tz="utc")
-
-#Find which of the csv files has the latest date-time
-MaxDateIndex <- which(Dates == max(Dates))
-
-#Find the filename of the csv file with the latest date
-LatestFile <- DropBoxFiles$path_display[FilesOfInterest[MaxDateIndex]]
-
-#Download the latest csv file
-drop_download(path=LatestFile, file.path(tempdir(),"wrf_file"),overwrite=TRUE)
-}
-
-#Read in the file
-WRFData <- readLines(file.path(tempdir(),"wrf_file"))
-
-#Find all the lines that start different site sections
-AllStartLines <- which(endsWith(WRFData, "(Date/Time in UTC),"))
-
-#Find the line that relates to the site of interest
-StartLine <- which(startsWith(WRFData, SiteName))
-
-#Find the last line for the site of interest
-NoOfLines <- minpositive(AllStartLines - StartLine) - 2
-
-SiteSpecificData <- read.table(file=file.path(tempdir(),"wrf_file"),skip = StartLine, nrows = NoOfLines, sep=",", header=TRUE, stringsAsFactors = FALSE)
-if (Above) ThresholdedIndices <- which(SiteSpecificData[,Parameter] > Threshold) else
-  ThresholdedIndices <- which(SiteSpecificData[,Parameter] < Threshold)
-
-if (length(ThresholdedIndices) > 0){
+  #Figure out the parameter long name and the units to be used
+  ParameterAttributes <- data.frame(Parameters = c("Temp","WindSpd","WindDir","Rain","RH","SWDOWN"),
+                                    ParameterLongNames = c("temperature", "wind speed", "wind direction", "rain", "relative humidity", "solar radiation"),
+                                    Units = c("degrees C","metres per second", "degrees from North", "millimetres", "percent", "joules per square metre"),
+                                    stringsAsFactors = FALSE)
+  ParameterIndex <- which(ParameterAttributes$Parameters == Parameter)
+  
+  #Figure out the site long name and the units to be used
+  SiteAttributes <- data.frame(SiteNames = c("Arthurs_Pass","Porters_Pass","Lewis_Pass","Desert_Road"),
+                               SiteLongNames = c("Arthur's Pass", "Porters Pass", "Lewis Pass", "Central North Island"),
+                               stringsAsFactors = FALSE)
+  SiteIndex <- which(SiteAttributes$SiteNames == SiteName)
+  
+  ##Create an authentication token for later use
+  #token <- drop_auth()
+  #saveRDS(token, )
+  
+  #Get the latest csv file from DropBox
+  {
+    #Figure out the filename of the latest file of interest
+    
+    #Get a list of all the files
+    DropBoxFiles <- drop_dir(path="Rainfall.NZ/WRF_data/")
+    
+    #Find which ones have a csv suffix
+    FilesOfInterest <- which(endsWith(DropBoxFiles$path_display,".csv"))
+    
+    #Get the metadata for all the csv files
+    MetadataOfFilesOfInterest <- lapply(DropBoxFiles$path_lower[FilesOfInterest], drop_get_metadata)
+    
+    #Get the date-times of the csv files from the metadata
+    DatesOfFilesOfInterest <- sapply(MetadataOfFilesOfInterest, "[[", "client_modified")
+    
+    #Set the datetimes as date-time objects
+    Dates <- as.POSIXct(DatesOfFilesOfInterest, format="%Y-%m-%dT%H:%M:%SZ",tz="utc")
+    
+    #Find which of the csv files has the latest date-time
+    MaxDateIndex <- which(Dates == max(Dates))
+    
+    #Find the filename of the csv file with the latest date
+    LatestFile <- DropBoxFiles$path_display[FilesOfInterest[MaxDateIndex]]
+    
+    #Download the latest csv file
+    drop_download(path=LatestFile, file.path(tempdir(),"wrf_file"),overwrite=TRUE)
+  }
+  
+  #Read in the file
+  WRFData <- readLines(file.path(tempdir(),"wrf_file"))
+  
+  #Find all the lines that start different site sections
+  AllStartLines <- which(endsWith(WRFData, "(Date/Time in UTC),"))
+  
+  #Find the line that relates to the site of interest
+  StartLine <- which(startsWith(WRFData, SiteName))
+  
+  #Find the last line for the site of interest
+  NoOfLines <- minpositive(AllStartLines - StartLine) - 2
+  
+  #Read in the data for the site of interest
+  SiteSpecificData <- read.table(file=file.path(tempdir(),"wrf_file"),skip = StartLine, nrows = NoOfLines, sep=",", header=TRUE, stringsAsFactors = FALSE)
+  
+  #Find what times the threshold was crossed
+  if (Above) ThresholdedIndices <- which(SiteSpecificData[,Parameter] > Threshold) else
+    ThresholdedIndices <- which(SiteSpecificData[,Parameter] < Threshold)
+  if (length(ThresholdedIndices) > 0) {
+    Status = TRUE 
+  
   #Convert the data to NZ time zone
   ThresholdedDateTimes <- as.POSIXct(paste(SiteSpecificData[ThresholdedIndices,'Date'],SiteSpecificData[ThresholdedIndices,'Time']),tz="utc")
   attr(ThresholdedDateTimes, "tzone") <- "nz"
-  ThresholdedDateTimes <-  format(ThresholdedDateTimes, "%d %b at %I %p")
+  #ThresholdedDateTimes <-  format(ThresholdedDateTimes, "%d %b at %I %p")
   
   #Select the data of interest
-  ThresholdedData <- round(SiteSpecificData[ThresholdedIndices,Parameter],1)
+  ThresholdedValues <- round(SiteSpecificData[ThresholdedIndices,Parameter],1)
   
-  #Prepare the information for the email
-  EmailSubject <- paste(SiteAttributes$SiteLongNames[SiteIndex], if(Above) {"high"} else {"low"}, ParameterAttributes$ParameterLongNames[ParameterIndex],"notification")
+  #Create a dataframe of the times and data
+  ThresholdedData <- data.frame(Time = ThresholdedDateTimes, Values = ThresholdedValues,check.names = FALSE, stringsAsFactors = FALSE)
+ 
+  }else {
+    Status = FALSE
+    ThresholdedData <- NULL
+  }
   
-  EmailMessage <- paste("The",ParameterAttributes$ParameterLongNames[ParameterIndex],"is forecast to drop below",Threshold,ParameterAttributes$Units[ParameterIndex], "at the following times over the next three days") 
-  
-  EmailTable <- data.frame('Time' = ThresholdedDateTimes, Parameter = ThresholdedData,check.names = FALSE)
-  names(EmailTable)[2] <- ParameterAttributes$ParameterLongNames[ParameterIndex] 
-  
-  #Call a yet-to-be-written email function
-  print(EmailSubject)
-  print(EmailMessage)
-  print(EmailTable)
-  AlertEmail(EmailSubject=EmailSubject,EmailContent=EmailMessage,EmailAlertTable=EmailTable)
+  AlertOutput <- list(Status = Status,
+                      Metadata =list(SiteName=SiteName,
+                           SiteLongName=SiteAttributes$SiteLongNames[SiteIndex],
+                           Parameter=Parameter,
+                           ParameterLongName=ParameterAttributes$ParameterLongNames[ParameterIndex],
+                           ParameterUnits=ParameterAttributes$Units[ParameterIndex],
+                           ThresholdValue=Threshold,
+                           ThresholdAbove=Above),
+                      Data=ThresholdedData)
+  return(AlertOutput)
 }
+
+#A function to prepare the contents of an alert email
+PrepareAlertEmailContents <- function(AlertData=list(Status = TRUE,
+                                                     Metadata =list(SiteName="MySite",
+                                                                 SiteLongName="My Site Where I live",
+                                                                 Parameter="Temp",
+                                                                 ParameterLongName="temperature",
+                                                                 ParameterUnits="degrees C",
+                                                                 ThresholdValue=2,
+                                                                 ThresholdAbove=FALSE),
+                                                     Data=data.frame(Time=as.POSIXct("2020-06-21 05:50"),Values=-5))){
+  
+
+  #browser()
+  SiteName <-   AlertData$Metadata$SiteLongName
+  Above <-      AlertData$Metadata$ThresholdAbove
+  ParameterLongName <- AlertData$Metadata$ParameterLongName
+  Threshold <-  AlertData$Metadata$ThresholdValue
+  Units <-      AlertData$Metadata$ParameterUnits
+    
+  #Prepare the information for the email
+    EmailSubject <- paste(SiteName, if(Above) {"high"} else {"low"}, ParameterLongName,"notification")
+    
+    EmailMessage <- paste("The",ParameterLongName,"at",SiteName,"is forecast to drop below",Threshold,Units, "at the following times over the next three days") 
+    
+    EmailTable <- AlertData$Data
+    names(EmailTable)[2] <- simpleCap(ParameterLongName)
+    EmailTable[1] <-  format(EmailTable[1], "%d %b at %I %p")
+    #print(EmailContents["EmailSubject"])
+    #print(EmailContents["EmailMessage"])
+    #print(EmailContents["EmailTable"])
+    return(list(EmailSubject=EmailSubject,
+                   EmailMessage=EmailMessage,
+                   EmailAlertTable=EmailTable))
+
+} 
+
+#**************
+#The Main Event
+#**************
+
+#Test for Alert Condition
+AlertCondition <- TestForAlert(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=12,Above=FALSE)
+
+if (AlertCondition$Status){
+
+  #Prepare Email contents
+  EmailContents <- PrepareAlertEmailContents(AlertCondition)
+
+  #send the alert email
+  AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable)
+}
+
+  
+
 
     
