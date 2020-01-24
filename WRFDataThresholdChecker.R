@@ -24,8 +24,20 @@ simpleCap <- function(x) {
         sep="", collapse=" ")
 }
 
-#A function to send an email
-AlertEmail <- function(EmailSubject="Alert Email",EmailMessage="Alert test",EmailAlertTable=cars[1:4,],RecipientList=c("timkerr37@hotmail.com")){
+#' A function to send an alert email
+#'
+#'This function sends an email with a preset sender and overall template given the subject, email message, and data table to be sent.
+#'@param EmailSubject Subject for the email. A character vector. Defaults to "Alert Email".
+#'@param EmailMessage The message body for the email. A character vector. Defaults to "Alert test".
+#'@param EmailAlertTable A table to be sent with the email. A data frame. Defaults to the first 4 lines of the cars data frame.
+#'@param to The email addresses that the email is to be sent to. A vector of character strings. Defaults to "timkerr37@hotmail.com"
+#'@author Tim Kerr, \email{Tim.Kerr@Rainfall.NZ}
+#'@return None
+#'@keywords Email alert
+#'@examples
+#'AlertEmail()
+#'@export
+AlertEmail <- function(EmailSubject="Alert Email",EmailMessage="Alert test",EmailAlertTable=cars[1:4,],to=c("timkerr37@hotmail.com")){
   #A function to send an email
   # Create a simple email message using
   # Markdown-formatted text in the `body`
@@ -67,16 +79,31 @@ mike.green@metsolutions.co.nz
   
   email %>%
     smtp_send(
-      #from = "tim.kerr@rainfall.nz",
-      from = "noreply@metsolutions.co.nz",
-      to = "timkerr37@hotmail.com",
-      subject = EmailSubject,
+      #from =       "tim.kerr@rainfall.nz",
+      from =        "noreply@metsolutions.co.nz",
+      to =          to,
+     # bcc =        "tim.kerr@rainfall.nz","mike.green@metsolutions.co.nz"
+      subject =     EmailSubject,
       credentials = creds_key("MikesAutoEmailKey")
     )
+  return()
 }
 
 #A function to test for an Alert condition
-TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=12,Above=FALSE){
+#'
+#'This function tests whether an alert condition exists in a WRF output file.
+#'@param SiteName The name of the site for which the data is to be tested. Must match the names used in the WRF data file. A character vector. Defaults to "Arthurs_Pass".
+#'@param Parameter The forecast parameter to be checked for threshold crossing. Must match the parameters in the WRF data file. A character vector. Defaults to "Temp" (for temperature). 
+#'@param Threshold The value with which the parameter is to be threholded against. Numeric. Defaults to 2.
+#'@param Above Whether the email is sent out when the parameter is above (TRUE) or below (FALSE) the threshold value. Defaults to TRUE
+#'@author Tim Kerr, \email{Tim.Kerr@Rainfall.NZ}
+#'@return Returns a list of the alert status, a list of alert metadata, and a data frame of the times and values when the threshold condition was met.
+#'@keywords Email alert WrF
+#'@examples
+#'TestForAlert()
+#'@export
+#'
+TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,Above=FALSE){
   
   #Figure out the parameter long name and the units to be used
   ParameterAttributes <- data.frame(Parameters = c("Temp","WindSpd","WindDir","Rain","RH","SWDOWN"),
@@ -173,7 +200,17 @@ TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=12
   return(AlertOutput)
 }
 
-#A function to prepare the contents of an alert email
+#' Prepare the contents of an Alert Email
+#' 
+#' This function takes the output of the TestForAlert function and formats the information ready for an email to be sent
+#'@param AlertData A list of the alert status, a list of alert metadata, and a data frame of the times and values when the threshold condition was met.
+#'@author Tim Kerr, \email{Tim.Kerr@Rainfall.NZ}
+#'@return Returns a list of an email subject, email message and a table for inclusion in the email
+#'@keywords Email alert WrF
+#'@examples
+#'PrepareAlertEmailContents()
+#'@export
+#'
 PrepareAlertEmailContents <- function(AlertData=list(Status = TRUE,
                                                      Metadata =list(SiteName="MySite",
                                                                  SiteLongName="My Site Where I live",
