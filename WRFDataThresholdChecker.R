@@ -9,8 +9,10 @@ if (!require(rdrop2)) install.packages('rdrop2'); library(rdrop2) #Package to en
 if (!require(httpuv)) install.packages('httpuv'); library(httpuv) #Package to enable authenticating DropBox access via drop2
 ##Note, on Sabalcore, before I could install the blastula package I had to install Rcpp package.
 #if (!require(Rcpp)) install.packages('Rcpp'); library(Rcpp) #Required to ensure a correct version of GLIBXX_3.4.20 is available, apparently if it was compiled with a different c++ compiler then it is problematic. See http://lists.r-forge.r-project.org/pipermail/rcpp-devel/2016-March/009148.html
-if (!require(blastula)) install.packages('blastula'); library(blastula) #Package to enable emailing. 
-
+#Sabalcore also required the "stringi" package to be installed
+  if (!require(blastula)) install.packages('blastula'); library(blastula) #Package to enable emailing. 
+  #if (!require(stringi)) install.packages('stringi'); library(stringi) #Required to ensure a correct version of ABXX_3.4.20 is available.
+  
 if (!require(keyring)) install.packages('keyring'); library(keyring) #Package to enable emailing. I needed to install libsodium-dev on my Ubuntu laptop for this to install, and libsecret-1-dev to make it work properly. On Sabalcore it requires loading the "libsodium" module prior to using R and running this script. But it still doesn't work. I've requested installation of libsecret-devel
 if (!require(knitr)) install.packages('knitr'); library(knitr) #Package to enable nice formatting of tables
 }
@@ -27,23 +29,21 @@ simpleCap <- function(x) {
 #' A function to send an alert email
 #'
 #'This function sends an email with a preset sender and overall template given the subject, email message, and data table to be sent.
+#'
 #'@param EmailSubject Subject for the email. A character vector. Defaults to "Alert Email".
 #'@param EmailMessage The message body for the email. A character vector. Defaults to "Alert test".
-#'@param EmailAlertTable A table to be sent with the email. A data frame. Defaults to the first 4 lines of the cars data frame.
+#'@param EmailAlertTable A table to be sent with the email. An html-formatted data frame. Defaults to the first 4 lines of the cars data frame.
 #'@param to The email addresses that the email is to be sent to. A vector of character strings. Defaults to "timkerr37@hotmail.com"
-#'@author Tim Kerr, \email{Tim.Kerr@Rainfall.NZ}
+#'@author Tim Kerr, \email{Tim.Kerr@@Rainfall.NZ}
 #'@return None
 #'@keywords Email alert
 #'@examples
 #'AlertEmail()
 #'@export
-AlertEmail <- function(EmailSubject="Alert Email",EmailMessage="Alert test",EmailAlertTable=cars[1:4,],to=c("timkerr37@hotmail.com")){
-  #A function to send an email
-  # Create a simple email message using
-  # Markdown-formatted text in the `body`
-  # and `footer` sections with the `md()`
-  # text helper function
-  FormattedTable <- kable(EmailAlertTable, format="html")
+AlertEmail <- function(EmailSubject="Alert Email",EmailMessage="Alert test",EmailAlertTable=kable(cars[1:4,],"html"),to=c("timkerr37@hotmail.com")){
+  #Find which rows are the first rows for each date
+  
+  FormattedTable <- EmailAlertTable
   email <-
     compose_email(
       body = md(c(EmailMessage,"***",
@@ -96,7 +96,7 @@ mike.green@metsolutions.co.nz
 #'@param Parameter The forecast parameter to be checked for threshold crossing. Must match the parameters in the WRF data file. A character vector. Defaults to "Temp" (for temperature). 
 #'@param Threshold The value with which the parameter is to be threholded against. Numeric. Defaults to 2.
 #'@param Above Whether the email is sent out when the parameter is above (TRUE) or below (FALSE) the threshold value. Defaults to TRUE
-#'@author Tim Kerr, \email{Tim.Kerr@Rainfall.NZ}
+#'@author Tim Kerr, \email{Tim.Kerr@@Rainfall.NZ}
 #'@return Returns a list of the alert status, a list of alert metadata, and a data frame of the times and values when the threshold condition was met.
 #'@keywords Email alert WrF
 #'@examples
@@ -113,8 +113,8 @@ TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,
   ParameterIndex <- which(ParameterAttributes$Parameters == Parameter)
   
   #Figure out the site long name and the units to be used
-  SiteAttributes <- data.frame(SiteNames = c("Arthurs_Pass","Porters_Pass","Lewis_Pass","Desert_Road"),
-                               SiteLongNames = c("Arthur's Pass", "Porters Pass", "Lewis Pass", "Central North Island"),
+  SiteAttributes <- data.frame(SiteNames = c("Arthurs_Pass","Castle_Hill","Lewis_Pass","Desert_Road"),
+                               SiteLongNames = c("Arthur's Pass", "Castle Hill", "Lewis Pass", "Central North Island"),
                                stringsAsFactors = FALSE)
   SiteIndex <- which(SiteAttributes$SiteNames == SiteName)
   
@@ -204,8 +204,8 @@ TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,
 #' 
 #' This function takes the output of the TestForAlert function and formats the information ready for an email to be sent
 #'@param AlertData A list of the alert status, a list of alert metadata, and a data frame of the times and values when the threshold condition was met.
-#'@author Tim Kerr, \email{Tim.Kerr@Rainfall.NZ}
-#'@return Returns a list of an email subject, email message and a table for inclusion in the email
+#'@author Tim Kerr, \email{Tim.Kerr@@Rainfall.NZ}
+#'@return Returns a list of an email subject, email message and a 2-column table for inclusion in the email
 #'@keywords Email alert WrF
 #'@examples
 #'PrepareAlertEmailContents()
@@ -234,15 +234,29 @@ PrepareAlertEmailContents <- function(AlertData=list(Status = TRUE,
     
     EmailMessage <- paste("The",ParameterLongName,"at",SiteName,"is forecast to drop below",Threshold,Units, "at the following times over the next three days") 
     
+    #Break the Date-Time into date and time
     EmailTable <- AlertData$Data
-    names(EmailTable)[2] <- simpleCap(ParameterLongName)
-    EmailTable[1] <-  format(EmailTable[1], "%d %b at %I %p")
+    Dates <- format(EmailTable[,1],"%d %b ")
+    Times <- format(EmailTable[,1], "at %I %p")
+    #Remove the original Date-Time column
+    EmailTable <- EmailTable[,-1,drop=FALSE]
+    EmailTable <- cbind(Dates,Times,EmailTable)
+    #Rename the last column to match the parameter name
+    names(EmailTable)[3] <- simpleCap(ParameterLongName)
+    
+    #Find the row numbers of the first instance of each date
+    FirstDateRows <- match(unique(EmailTable$Dates),EmailTable$Dates)
+    FormattedEmailTable <-kable(EmailTable,format="html") %>%
+      collapse_rows(columns = 1, valign = 'top') %>%
+      row_spec(FirstDateRows,extra_css = "border-top:1px solid")
+      
+    
     #print(EmailContents["EmailSubject"])
     #print(EmailContents["EmailMessage"])
     #print(EmailContents["EmailTable"])
     return(list(EmailSubject=EmailSubject,
                    EmailMessage=EmailMessage,
-                   EmailAlertTable=EmailTable))
+                   EmailAlertTable=FormattedEmailTable))
 
 } 
 
@@ -250,7 +264,7 @@ PrepareAlertEmailContents <- function(AlertData=list(Status = TRUE,
 #The Main Event
 #**************
 
-#Test for Alert Condition
+#Test for Alert Condition at Arthur's Pass
 AlertCondition <- TestForAlert(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=12,Above=FALSE)
 
 if (AlertCondition$Status){
@@ -262,6 +276,17 @@ if (AlertCondition$Status){
   AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable)
 }
 
+#Test for Alert Condition at Arthur's Pass
+AlertCondition <- TestForAlert(SiteName = "Castle_Hill",Parameter="Temp",Threshold=20,Above=FALSE)
+
+if (AlertCondition$Status){
+  
+  #Prepare Email contents
+  EmailContents <- PrepareAlertEmailContents(AlertCondition)
+  
+  #send the alert email
+  AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable)
+}
   
 
 
