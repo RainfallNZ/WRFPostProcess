@@ -15,7 +15,8 @@ if (!require(httpuv)) install.packages('httpuv'); library(httpuv) #Package to en
   
 if (!require(keyring)) install.packages('keyring'); library(keyring) #Package to enable emailing. I needed to install libsodium-dev on my Ubuntu laptop for this to install, and libsecret-1-dev to make it work properly. On Sabalcore it requires loading the "libsodium" module prior to using R and running this script. But it still doesn't work. I've requested installation of libsecret-devel
 if (!require(knitr)) install.packages('knitr'); library(knitr) #Package to enable nice formatting of tables
-}
+  if (!require(kableExtra)) install.packages('kableExtra'); library(kableExtra) #Package to enable nice formatting of tables
+  }
 
 #A handy function
 minpositive = function(x) min(x[x > 0])
@@ -114,7 +115,7 @@ TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,
   
   #Figure out the site long name and the units to be used
   SiteAttributes <- data.frame(SiteNames = c("Arthurs_Pass","Castle_Hill","Lewis_Pass","Desert_Road"),
-                               SiteLongNames = c("Arthur's Pass", "Castle Hill", "Lewis Pass", "Central North Island"),
+                               SiteLongNames = c("Arthur's Pass", "Poerters Pass", "Lewis Pass", "Central North Island"),
                                stringsAsFactors = FALSE)
   SiteIndex <- which(SiteAttributes$SiteNames == SiteName)
   
@@ -265,7 +266,7 @@ PrepareAlertEmailContents <- function(AlertData=list(Status = TRUE,
 #**************
 
 #Test for Alert Condition at Arthur's Pass
-AlertCondition <- TestForAlert(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=12,Above=FALSE)
+AlertCondition <- TestForAlert(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=15,Above=FALSE)
 
 if (AlertCondition$Status){
 
@@ -273,7 +274,7 @@ if (AlertCondition$Status){
   EmailContents <- PrepareAlertEmailContents(AlertCondition)
 
   #send the alert email
-  AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable)
+  AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable, to =c("timkerr37@hotmail.com","tim.kerr@rainfall.nz","mike.green@metsolutions.co.nz"))
 }
 
 #Test for Alert Condition at Arthur's Pass
