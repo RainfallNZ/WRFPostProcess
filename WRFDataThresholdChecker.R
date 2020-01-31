@@ -77,7 +77,9 @@ mike.green@metsolutions.co.nz
   ##keys can be deleted using key_delete(service="sfsdfd",username="sdfsdfsd")
   #create_smtp_creds_key(id="TimsAutoEmailKey",user="tim.kerr@rainfall.nz",host="mailx.freeparking.co.nz",port=465, use_ssl = TRUE)
   #create_smtp_creds_key(id="MikesAutoEmailKey",user="noreply@metsolutions.co.nz",host="mail.1stdomains.co.nz",port=465, use_ssl = TRUE)
+  #create_smtp_creds_file(file="EmailCreds.txt",user="noreply@metsolutions.co.nz",host="mail.1stdomains.co.nz",port=465, use_ssl = TRUE)
   
+    
   email %>%
     smtp_send(
       #from =       "tim.kerr@rainfall.nz",
@@ -85,7 +87,8 @@ mike.green@metsolutions.co.nz
       to =          to,
      # bcc =        "tim.kerr@rainfall.nz","mike.green@metsolutions.co.nz"
       subject =     EmailSubject,
-      credentials = creds_key("MikesAutoEmailKey")
+      #credentials = creds_key("MikesAutoEmailKey")
+      credentials = creds_file("EmailCreds.txt")
     )
   return()
 }
