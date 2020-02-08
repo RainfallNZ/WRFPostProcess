@@ -30,18 +30,22 @@ simpleCap <- function(x) {
 #' A function to send an alert email
 #'
 #'This function sends an email with a preset sender and overall template given the subject, email message, and data table to be sent.
+#'It relies on the availability of a file with email credentials within it
 #'
 #'@param EmailSubject Subject for the email. A character vector. Defaults to "Alert Email".
 #'@param EmailMessage The message body for the email. A character vector. Defaults to "Alert test".
 #'@param EmailAlertTable A table to be sent with the email. An html-formatted data frame. Defaults to the first 4 lines of the cars data frame.
-#'@param to The email addresses that the email is to be sent to. A vector of character strings. Defaults to "timkerr37@hotmail.com"
+#'@param to The email addresses that the email is to be sent to. A vector of character strings. Defaults to "timkerr37@@hotmail.com"
+#'@param blindCarbonCopy The email addresses that the email is to be sent to as a blind carbon copy. A vector of character strings. Defaults to "tim.kerr@@rainfall.nz"
+#'@param CredentialsFile A file with email credentials within it.Previously prepared using create_smtp_creds_file().
+
 #'@author Tim Kerr, \email{Tim.Kerr@@Rainfall.NZ}
 #'@return None
 #'@keywords Email alert
 #'@examples
 #'AlertEmail()
 #'@export
-AlertEmail <- function(EmailSubject="Alert Email",EmailMessage="Alert test",EmailAlertTable=kable(cars[1:4,],"html"),to=c("timkerr37@hotmail.com")){
+AlertEmail <- function(EmailSubject="Alert Email",EmailMessage="Alert test",EmailAlertTable=kable(cars[1:4,],"html"),to=c("timkerr37@hotmail.com"), blindCarbonCopy=c("tim.kerr@rainfall.nz"), CredentialsFile = "EmailCreds.txt"){
   #Find which rows are the first rows for each date
   
   FormattedTable <- EmailAlertTable
@@ -77,6 +81,8 @@ mike.green@metsolutions.co.nz
   ##keys can be deleted using key_delete(service="sfsdfd",username="sdfsdfsd")
   #create_smtp_creds_key(id="TimsAutoEmailKey",user="tim.kerr@rainfall.nz",host="mailx.freeparking.co.nz",port=465, use_ssl = TRUE)
   #create_smtp_creds_key(id="MikesAutoEmailKey",user="noreply@metsolutions.co.nz",host="mail.1stdomains.co.nz",port=465, use_ssl = TRUE)
+  
+  #This is an alternative option that doesn't depend on the keyring package
   #create_smtp_creds_file(file="EmailCreds.txt",user="noreply@metsolutions.co.nz",host="mail.1stdomains.co.nz",port=465, use_ssl = TRUE)
   
     
@@ -85,10 +91,10 @@ mike.green@metsolutions.co.nz
       #from =       "tim.kerr@rainfall.nz",
       from =        "noreply@metsolutions.co.nz",
       to =          to,
-     # bcc =        "tim.kerr@rainfall.nz","mike.green@metsolutions.co.nz"
+      bcc =         blindCarbonCopy,
       subject =     EmailSubject,
       #credentials = creds_key("MikesAutoEmailKey")
-      credentials = creds_file("EmailCreds.txt")
+      credentials = creds_file(CredentialsFile)
     )
   return()
 }
@@ -118,7 +124,7 @@ TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,
   
   #Figure out the site long name and the units to be used
   SiteAttributes <- data.frame(SiteNames = c("Arthurs_Pass","Castle_Hill","Lewis_Pass","Desert_Road"),
-                               SiteLongNames = c("Arthur's Pass", "Poerters Pass", "Lewis Pass", "Central North Island"),
+                               SiteLongNames = c("Arthur's Pass", "Porters Pass", "Lewis Pass", "Central North Island"),
                                stringsAsFactors = FALSE)
   SiteIndex <- which(SiteAttributes$SiteNames == SiteName)
   
@@ -277,10 +283,13 @@ if (AlertCondition$Status){
   EmailContents <- PrepareAlertEmailContents(AlertCondition)
 
   #send the alert email
-  AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable, to =c("timkerr37@hotmail.com","tim.kerr@rainfall.nz","mike.green@metsolutions.co.nz"))
+  AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable, 
+             to =c("timkerr37@hotmail.com"),
+             blindCarbonCopy = c("tim.kerr@rainfall.nz"),
+             CredentialsFile="EmailCreds.txt")
 }
 
-#Test for Alert Condition at Arthur's Pass
+#Test for Alert Condition at Castle Hills
 AlertCondition <- TestForAlert(SiteName = "Castle_Hill",Parameter="Temp",Threshold=20,Above=FALSE)
 
 if (AlertCondition$Status){
@@ -289,7 +298,10 @@ if (AlertCondition$Status){
   EmailContents <- PrepareAlertEmailContents(AlertCondition)
   
   #send the alert email
-  AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable)
+  AlertEmail(EmailSubject=EmailContents$EmailSubject,EmailMessage=EmailContents$EmailMessage,EmailAlertTable=EmailContents$EmailAlertTable,
+             to =c("timkerr37@hotmail.com"),
+             blindCarbonCopy = c("tim.kerr@rainfall.nz"),
+             CredentialsFile="EmailCreds.txt")
 }
   
 
