@@ -167,7 +167,7 @@ TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,
     drop_download(path=LatestFile, file.path(tempdir(),"wrf_file"),overwrite=TRUE)
   } else {
     #Get the file list from the data directory
-    DataFiles <- list.info(list.files(DataSource, pattern = "^20.*csv", full.names = TRUE))
+    DataFiles <- file.info(list.files(DataSource, pattern = "^20.*csv", full.names = TRUE))
     
     #Find the latest one
     LatestFile <- rownames(DataFiles)[which.max(DataFiles$mtime)]
