@@ -3,6 +3,9 @@
 #Initial version 20th January 2020
 #Copyright 2020 Rainfall.NZ
 
+#********************Check this first!!************************
+#**** the "DataSource" parameter in the call to the TestForAlerts() function needs to be changed to "DropBox" if being run on anything except SabalCore.
+
 #Load libraries
 {
 if (!require(rdrop2)) install.packages('rdrop2'); library(rdrop2) #Package to enable DropBox access
@@ -10,8 +13,8 @@ if (!require(httpuv)) install.packages('httpuv'); library(httpuv) #Package to en
 ##Note, on Sabalcore, before I could install the blastula package I had to install Rcpp package.
 #if (!require(Rcpp)) install.packages('Rcpp'); library(Rcpp) #Required to ensure a correct version of GLIBXX_3.4.20 is available, apparently if it was compiled with a different c++ compiler then it is problematic. See http://lists.r-forge.r-project.org/pipermail/rcpp-devel/2016-March/009148.html
 #Sabalcore also required the "stringi" package to be installed
-  if (!require(blastula)) install.packages('blastula'); library(blastula) #Package to enable emailing. 
-  #if (!require(stringi)) install.packages('stringi'); library(stringi) #Required to ensure a correct version of ABXX_3.4.20 is available.
+if (!require(blastula)) install.packages('blastula'); library(blastula) #Package to enable emailing. 
+#if (!require(stringi)) install.packages('stringi'); library(stringi) #Required to ensure a correct version of ABXX_3.4.20 is available.
   
 if (!require(keyring)) install.packages('keyring'); library(keyring) #Package to enable emailing. I needed to install libsodium-dev on my Ubuntu laptop for this to install, and libsecret-1-dev to make it work properly. On Sabalcore it requires loading the "libsodium" module prior to using R and running this script. But it still doesn't work. I've requested installation of libsecret-devel
 if (!require(knitr)) install.packages('knitr'); library(knitr) #Package to enable nice formatting of tables
@@ -106,6 +109,8 @@ mike.green@metsolutions.co.nz
 #'@param Parameter The forecast parameter to be checked for threshold crossing. Must match the parameters in the WRF data file. A character vector. Defaults to "Temp" (for temperature). 
 #'@param Threshold The value with which the parameter is to be threholded against. Numeric. Defaults to 2.
 #'@param Above Whether the email is sent out when the parameter is above (TRUE) or below (FALSE) the threshold value. Defaults to TRUE
+#'@param DataSource Either a text string of the location of the WRF point data files, or the keyword "DropBox". Defaults to "DropBox".
+
 #'@author Tim Kerr, \email{Tim.Kerr@@Rainfall.NZ}
 #'@return Returns a list of the alert status, a list of alert metadata, and a data frame of the times and values when the threshold condition was met.
 #'@keywords Email alert WrF
@@ -113,7 +118,7 @@ mike.green@metsolutions.co.nz
 #'TestForAlert()
 #'@export
 #'
-TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,Above=FALSE){
+TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,Above=FALSE, DataSource="DropBox"){
   
   #Figure out the parameter long name and the units to be used
   ParameterAttributes <- data.frame(Parameters = c("Temp","WindSpd","WindDir","Rain","RH","SWDOWN"),
@@ -133,6 +138,7 @@ TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,
   #saveRDS(token, )
   
   #Get the latest csv file from DropBox
+  if (DataSource == "DropBox")
   {
     #Figure out the filename of the latest file of interest
     
@@ -159,6 +165,15 @@ TestForAlert <- function(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=2,
     
     #Download the latest csv file
     drop_download(path=LatestFile, file.path(tempdir(),"wrf_file"),overwrite=TRUE)
+  } else {
+    #Get the file list from the data directory
+    DataFiles <- list.info(list.files(DataSource, pattern = "^20.*csv", full.names = TRUE))
+    
+    #Find the latest one
+    LatestFile <- rownames(DataFiles)[which.max(DataFiles$mtime)]
+    
+    #Copy it to a temporary file ready for further processing
+    file.copy(from=LatestFile, to= file.path(tempdir(),"wrf_file"))
   }
   
   #Read in the file
@@ -275,7 +290,8 @@ PrepareAlertEmailContents <- function(AlertData=list(Status = TRUE,
 #**************
 
 #Test for Alert Condition at Arthur's Pass
-AlertCondition <- TestForAlert(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=15,Above=FALSE)
+#AlertCondition <- TestForAlert(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=15,Above=FALSE, DataSource = "DropBox")
+AlertCondition <- TestForAlert(SiteName = "Arthurs_Pass",Parameter="Temp",Threshold=15,Above=FALSE, DataSource = "/e/05/aurec01/wrf_daily/data/output/PointData")
 
 if (AlertCondition$Status){
 
@@ -290,7 +306,8 @@ if (AlertCondition$Status){
 }
 
 #Test for Alert Condition at Castle Hills
-AlertCondition <- TestForAlert(SiteName = "Castle_Hill",Parameter="Temp",Threshold=20,Above=FALSE)
+#AlertCondition <- TestForAlert(SiteName = "Castle_Hill",Parameter="Temp",Threshold=20,Above=FALSE,DataSource = "DropBox")
+AlertCondition <- TestForAlert(SiteName = "Castle_Hill",Parameter="Temp",Threshold=20,Above=FALSE,DataSource = "/e/05/aurec01/wrf_daily/data/output/PointData")
 
 if (AlertCondition$Status){
   
