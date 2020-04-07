@@ -272,6 +272,7 @@ PrepareAlertEmailContents <- function(AlertData=list(Status = TRUE,
     #Find the row numbers of the first instance of each date
     FirstDateRows <- match(unique(EmailTable$Dates),EmailTable$Dates)
     FormattedEmailTable <-kable(EmailTable,format="html") %>%
+      column_spec(column = 1,width= "4em",width_min = "4em") %>%
       collapse_rows(columns = 1, valign = 'top') %>%
       row_spec(FirstDateRows,extra_css = "border-top:1px solid")
       
